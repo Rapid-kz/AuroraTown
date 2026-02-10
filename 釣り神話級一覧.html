@@ -188,29 +188,26 @@ async function addPriceRecord() {
     btn.disabled = true;
     btn.innerText = "保存中...";
 
+    // 1. まず画面（HTML）に即座に反映させる（ユーザーを待たせない）
+    records.unshift(newEntry);
+    updateApp();
+
     try {
-        // 1. GASへ送信
-        await fetch(GAS_API_URL, {
+        // 2. GASへ送信（awaitせずにバックグラウンドで送る手法）
+        fetch(GAS_API_URL, {
             method: "POST",
             mode: "no-cors", 
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(newEntry)
         });
 
-        // --- ★ここが重要：即時反映ロジック ---
-        // スプレッドシート側のCSVが更新されるのを待たずに、
-        // 今入力したデータを現在のリスト（records）の先頭に追加します
-        records.unshift(newEntry); 
-        
-        // 2. 画面のテーブルと履歴を更新
-        updateApp(); 
-
-        alert("保存しました！リストを更新しました。");
+        // no-cors の場合、結果を待たずに「完了」とする
+        alert("送信を開始しました！反映まで数分かかる場合があります。");
         document.getElementById('priceInput').value = '';
 
     } catch (error) {
-        console.error("保存エラー:", error);
-        alert("通信エラーが発生しました。");
+        // 基本的に no-cors ではここには来ませんが、ネット切断時などの保険
+        console.error("送信自体に失敗:", error);
     } finally {
         btn.disabled = false;
         btn.innerText = "記録を追加";
@@ -219,6 +216,7 @@ async function addPriceRecord() {
 </script>
 </body>
 </html>
+
 
 
 

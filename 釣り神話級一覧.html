@@ -166,9 +166,39 @@
 </footer>
 
 <script>
-// ★先ほどコピーしたGASのウェブアプリURLをここに貼り付け
+// 1. 基本設定
 const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbx_aqgwtxc5AH2kX2IsBGF_PxNlcju23aXGeE36sLja6Pi781USgWjjNyaogIs8PyaR/exec';
+const SPREADSHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTzI_33YfbRGxe8J4GaEEvNamEw71ZOHx3F9dFiEqPyWeCSkXJ3P4skBuOwbBXWP7dWlRQjHITFGQqv/pub?gid=1444426668&single=true&output=csv'; // ★CSVのURLを忘れずに！
 
+let records = [];
+
+// 2. 初期化：スプレッドシートからデータを読み込む
+async function initApp() {
+    try {
+        const response = await fetch(SPREADSHEET_CSV_URL);
+        if (!response.ok) throw new Error('読み込み失敗');
+        const csvText = await response.text();
+        
+        // CSVをパースしてrecordsに格納
+        const lines = csvText.split("\n");
+        const result = [];
+        for (let i = 1; i < lines.length; i++) {
+            const row = lines[i].split(",");
+            if (row.length < 3) continue;
+            result.push({
+                date: row[0].trim(),
+                name: row[1].trim(),
+                price: parseInt(row[2].trim()) || 0
+            });
+        }
+        records = result.reverse(); // 新しい順にする
+        updateApp();
+    } catch (error) {
+        console.error("初期ロードエラー:", error);
+    }
+}
+
+// 3. 記録の追加（送信と即時反映）
 async function addPriceRecord() {
     const fishName = document.getElementById('fishSelect').value;
     const price = parseInt(document.getElementById('priceInput').value);
@@ -188,33 +218,80 @@ async function addPriceRecord() {
     btn.disabled = true;
     btn.innerText = "送信中...";
 
-    // 1. スプレッドシートへ送信（エラーを無視する設定）
+    // スプレッドシートへ送信（no-corsでエラー判定を回避）
     fetch(GAS_API_URL, {
         method: "POST",
-        mode: "no-cors", 
+        mode: "no-cors",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newEntry)
-    }).catch(e => {
-        // no-corsでも稀に起きるネット遮断などのエラーログ用
-        console.log("Network background log:", e);
     });
 
-    // 2. 「成功・失敗」の判定を待たずに画面を更新する
-    // スプレッドシートに届いているなら、ここを通ればOK
-    records.unshift(newEntry); 
+    // 重要：サーバーの返事を待たずに画面を更新（即時反映）
+    records.unshift(newEntry);
     updateApp();
 
-    // 3. 完了処理
     setTimeout(() => {
-        alert("送信しました！\n（反映まで少し時間がかかる場合があります）");
+        alert("送信しました！\n（一覧への完全な反映には数分かかる場合があります）");
         btn.disabled = false;
         btn.innerText = "記録を追加";
         document.getElementById('priceInput').value = '';
     }, 500);
 }
+
+// 4. 画面更新ロジック（メインテーブル・履歴・カウント）
+function updateApp() {
+    renderTableStats();
+    renderHistory();
+    document.getElementById('counter').innerText = `現在のデータ数: ${records.length} / 100`;
+}
+
+function renderTableStats() {
+    const tableRows = document.querySelectorAll('#targetTable tbody tr');
+    tableRows.forEach(row => {
+        const name = row.getAttribute('data-fish-name');
+        const fishRecords = records.filter(r => r.name === name);
+        const minCell = row.querySelector('.min-price');
+        const maxCell = row.querySelector('.max-price');
+
+        if (fishRecords.length > 0) {
+            const prices = fishRecords.map(r => r.price);
+            minCell.innerText = Math.min(...prices).toLocaleString() + " 円";
+            maxCell.innerText = Math.max(...prices).toLocaleString() + " 円";
+        } else {
+            minCell.innerText = "-";
+            maxCell.innerText = "-";
+        }
+    });
+}
+
+function renderHistory() {
+    const tbody = document.querySelector('#historyTable tbody');
+    tbody.innerHTML = '';
+    records.slice(0, 100).forEach(r => { // 最新100件表示
+        const row = `<tr><td>${r.date}</td><td>${r.name}</td><td>${r.price.toLocaleString()}円</td></tr>`;
+        tbody.innerHTML += row;
+    });
+}
+
+// 5. フィルタリング機能（既存のボタン用）
+document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const filterValue = btn.getAttribute('data-filter');
+        document.querySelectorAll('#targetTable tbody tr').forEach(row => {
+            const habitat = row.getAttribute('data-habitat');
+            row.style.display = (filterValue === 'all' || habitat === filterValue) ? '' : 'none';
+        });
+    });
+});
+
+// 起動時にロード
+initApp();
 </script>
 </body>
 </html>
+
 
 
 

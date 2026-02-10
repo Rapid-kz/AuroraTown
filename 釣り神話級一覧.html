@@ -184,34 +184,42 @@ async function addPriceRecord() {
         date: new Date().toLocaleString('ja-JP')
     };
 
-    // ボタンを無効化（連打防止）
     const btn = document.querySelector('.submit-btn');
     btn.disabled = true;
     btn.innerText = "保存中...";
 
     try {
-        // GASにデータを送信
+        // 1. GASへ送信
         await fetch(GAS_API_URL, {
             method: "POST",
+            mode: "no-cors", 
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify(newEntry)
         });
 
-        alert("スプレッドシートに保存しました！");
+        // --- ★ここが重要：即時反映ロジック ---
+        // スプレッドシート側のCSVが更新されるのを待たずに、
+        // 今入力したデータを現在のリスト（records）の先頭に追加します
+        records.unshift(newEntry); 
         
-        // 画面上のデータを更新するために再読み込み
-        initApp(); 
-        
+        // 2. 画面のテーブルと履歴を更新
+        updateApp(); 
+
+        alert("保存しました！リストを更新しました。");
+        document.getElementById('priceInput').value = '';
+
     } catch (error) {
         console.error("保存エラー:", error);
-        alert("保存に失敗しました。");
+        alert("通信エラーが発生しました。");
     } finally {
         btn.disabled = false;
         btn.innerText = "記録を追加";
-        document.getElementById('priceInput').value = '';
     }
-}</script>
+}
+</script>
 </body>
 </html>
+
 
 
 

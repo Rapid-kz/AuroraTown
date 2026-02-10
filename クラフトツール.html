@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>クラフト一覧</title>
+    <style>
+        body { font-family: sans-serif; background-color: #f0f2f5; padding: 20px; display: flex; justify-content: center; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 500px; }
+        
+        /* 1行目: アイテム選択 */
+        .row-item { margin-bottom: 20px; }
+        .row-item label { display: block; font-weight: bold; margin-bottom: 8px; color: #333; }
+        select { width: 100%; padding: 12px; border: 2px solid #4a5568; border-radius: 8px; font-size: 1.1rem; }
+
+        /* 2行目・3行目: パラメータ表示エリア */
+        .status-grid { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 10px; 
+            background: #f8f9fa; 
+            padding: 15px; 
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .status-box { display: flex; flex-direction: column; }
+        .status-box label { font-size: 0.8rem; color: #666; margin-bottom: 4px; }
+        .status-box div, .status-box input { 
+            font-weight: bold; font-size: 1rem; color: #2d3748; 
+            padding: 8px; background: white; border: 1px solid #ddd; border-radius: 4px;
+        }
+        input[type="number"] { width: 100%; box-sizing: border-box; border: 2px solid #007bff; }
+
+        /* 材料表 */
+        .mat-title { font-weight: bold; border-left: 4px solid #007bff; padding-left: 10px; margin-bottom: 10px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border-bottom: 1px solid #eee; padding: 12px; text-align: left; }
+        th { font-size: 0.8rem; color: #999; text-transform: uppercase; }
+        .count { text-align: right; font-weight: bold; color: #d32f2f; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <div class="row-item">
+        <label>アイテムを選択</label>
+        <select id="itemSelect" onchange="calculate()"></select>
+    </div>
+
+    <div class="status-grid">
+        <div class="status-box">
+            <label>熟練度 </label>
+            <div id="resSkill">-</div>
+        </div>
+        <div class="status-box">
+            <label>個数</label>
+            <input type="number" id="quantity" value="1" min="1" oninput="calculate()">
+        </div>
+        <div class="status-box">
+            <label>合計労力</label>
+            <div id="resLabor">-</div>
+        </div>
+        <div class="status-box">
+            <label>合計価格</label>
+            <div id="resPrice">-</div>
+        </div>
+    </div>
+
+    <div id="resultArea" style="display:none;">
+        <div class="mat-title">必要材料</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>材料名</th>
+                    <th style="text-align: right;">必要数</th>
+                </tr>
+            </thead>
+            <tbody id="materialBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+const craftData = [
+    { name: "Bat", skill: "0", labor: 20, price: 50, mat: { "Aluminium": 10, "Steel": 5 } },
+    { name: "Knife", skill: "20", labor: 15, price: 10, mat: { "Plastic": 3, "Steel": 5 } },
+    { name: "Pistol MK2", skill: "20", labor: 250, price: 20000, mat: { "Aluminium": 5, "Iron": 10, "Plastic": 5, "布切れ": 5 } },
+    { name: "Pistol", skill: "100", labor: 250, price: 20000, mat: { "Iron": 10, "Metal Scrap": 30, "Rubber": 20, "布切れ": 5 } },
+    { name: "Heavy Pistol", skill: "300", labor: 450, price: 30000, mat: { "Iron": 10, "Metal Scrap": 40, "Rubber": 20, "布切れ": 5 } },
+    { name: "Handcuffs", skill: "5,000", labor: 250, price: 12000, mat: { "Aluminium": 30, "Plastic": 20, "Steel": 20 } },
+    { name: "Mini SMG", skill: "9,000", labor: 250, price: 150000, mat: { "Iron": 20, "Metal Scrap": 50, "Rubber": 30, "布切れ": 10 } },
+    { name: "Assault SMG", skill: "10,000", labor: 300, price: 200000, mat: { "Iron": 40, "Metal Scrap": 50, "Rubber": 60, "布切れ": 10 } },
+    { name: "Advanced Rifle", skill: "10,000", labor: 300, price: 200000, mat: { "Iron": 40, "Metal Scrap": 50, "Rubber": 60, "布切れ": 10 } },
+    { name: "Compensator", skill: "10,000", labor: 250, price: 5000, mat: { "Metal Scrap": 10, "Plastic": 10, "Steel": 10 } },
+    { name: "12 Gauge", skill: "20,000", labor: 100, price: 3000, mat: { "Carbon": 20, "Metal Scrap": 5, "Rubber": 2 } },
+    { name: "Pump Shotgun MK2", skill: "25,000", labor: 500, price: 500000, mat: { "Iron": 40, "Metal Scrap": 50, "Rubber": 50, "布切れ": 10 } },
+    { name: "Sawn Off Shotgun", skill: "25,000", labor: 500, price: 500000, mat: { "Iron": 30, "Metal Scrap": 40, "Rubber": 40, "布切れ": 10 } },
+    { name: "SMG", skill: "50,000", labor: 500, price: 200000, mat: { "Iron": 30, "Metal Scrap": 70, "Rubber": 40, "布切れ": 10 } },
+    { name: "Assault Rifle MK2", skill: "50,000", labor: 1000, price: 500000, mat: { "Iron": 30, "Metal Scrap": 50, "Rubber": 40, "布切れ": 10 } },
+    { name: "Carbine Rifle MK2", skill: "50,000", labor: 500, price: 500000, mat: { "Iron": 40, "Metal Scrap": 70, "Rubber": 50, "布切れ": 10 } },
+    { name: "Bullpup Rifle MK2", skill: "50,000", labor: 500, price: 500000, mat: { "Iron": 40, "Metal Scrap": 50, "Rubber": 50, "布切れ": 10 } },
+    { name: "Heavy Barrel", skill: "50,000", labor: 250, price: 10000, mat: { "Metal Scrap": 20, "Plastic": 20, "Steel": 20 } },
+    { name: "Extended SMG Clip", skill: "50,000", labor: 250, price: 10000, mat: { "Metal Scrap": 20, "Plastic": 20, "Steel": 20 } },
+    { name: "Extended Pistol Clip", skill: "50,000", labor: 250, price: 10000, mat: { "Metal Scrap": 10, "Plastic": 10, "Steel": 10 } },
+    { name: "9mm", skill: "50,000", labor: 100, price: 3000, mat: { "Carbon": 20, "Metal Scrap": 5, "Rubber": 2 } },
+    { name: "Small Scope", skill: "50,000", labor: 250, price: 10000, mat: { "Carbon": 10, "Metal Scrap": 20, "Plastic": 20, "Steel": 20 } },
+    { name: "Tactical Flashlight", skill: "50,000", labor: 250, price: 10000, mat: { "Metal Scrap": 10, "Plastic": 10, "Steel": 10 } },
+    { name: "Micro SMG", skill: "50,000", labor: 500, price: 200000, mat: { "Iron": 20, "Metal Scrap": 50, "Rubber": 30, "布切れ": 10 } },
+    { name: "Suppressor", skill: "50,000", labor: 250, price: 500000, mat: { "Metal Scrap": 50, "Plastic": 50, "布切れ": 50 } },
+    { name: "5.56x45", skill: "50,000", labor: 100, price: 3000, mat: { "Carbon": 20, "Metal Scrap": 5, "Rubber": 2 } },
+    { name: ".45 ACP", skill: "50,000", labor: 100, price: 3000, mat: { "Carbon": 20, "Metal Scrap": 5, "Rubber": 2 } },
+    { name: "SMG Mk2", skill: "50,000", labor: 500, price: 250000, mat: { "Iron": 30, "Metal Scrap": 30, "Rubber": 40, "布切れ": 10 } },
+    { name: "Extended Shotgun Clip", skill: "75,000", labor: 250, price: 30000, mat: { "Metal Scrap": 20, "Plastic": 20, "Steel": 20 } },
+    { name: "Medium Scope", skill: "100,000", labor: 250, price: 10000, mat: { "Carbon": 10, "Metal Scrap": 30, "Plastic": 30, "Steel": 30 } },
+    { name: "Grenade", skill: "100,000", labor: 250, price: 200000, mat: { "Aluminium": 15, "Glass": 10, "Steel": 15 } },
+    { name: "Extended Rifle Clip", skill: "100,000", labor: 250, price: 30000, mat: { "Metal Scrap": 30, "Plastic": 30, "Steel": 30 } },
+    { name: "Grip", skill: "100,000", labor: 250, price: 10000, mat: { "Metal Scrap": 30, "Plastic": 30, "Steel": 30 } },
+    { name: "Macro Scope", skill: "100,000", labor: 500, price: 10000, mat: { "Carbon": 10, "Metal Scrap": 30, "Plastic": 30, "Steel": 30 } },
+    { name: "Tactical Suppressor", skill: "100,000", labor: 500, price: 1000000, mat: { "Metal Scrap": 60, "Plastic": 60, "布切れ": 60 } }
+];
+
+const select = document.getElementById('itemSelect');
+craftData.forEach((item, index) => {
+    const option = document.createElement('option');
+    option.value = index;
+    option.textContent = item.name;
+    select.appendChild(option);
+});
+
+function calculate() {
+    const index = select.value;
+    const qty = parseInt(document.getElementById('quantity').value) || 0;
+    const item = craftData[index];
+    
+    if (qty <= 0) {
+        document.getElementById('resultArea').style.display = 'none';
+        return;
+    }
+
+    document.getElementById('resultArea').style.display = 'block';
+    document.getElementById('resSkill').textContent = item.skill;
+    document.getElementById('resLabor').textContent = (item.labor * qty).toLocaleString();
+    document.getElementById('resPrice').textContent = "¥" + (item.price * qty).toLocaleString();
+
+    const tbody = document.getElementById('materialBody');
+    tbody.innerHTML = '';
+    for (const [matName, count] of Object.entries(item.mat)) {
+        const row = document.createElement('tr');
+        row.innerHTML = `<td>${matName}</td><td class="count">${(count * qty).toLocaleString()}</td>`;
+        tbody.appendChild(row);
+    }
+}
+calculate();
+</script>
+</body>
+</html>

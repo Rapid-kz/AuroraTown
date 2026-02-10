@@ -166,115 +166,54 @@
 </footer>
 
 <script>
-    // --- 既存のフィルタリング機能 ---
-    const buttons = document.querySelectorAll('.filter-btn');
-    const tableRows = document.querySelectorAll('#targetTable tbody tr');
+// ★先ほどコピーしたGASのウェブアプリURLをここに貼り付け
+const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbx_aqgwtxc5AH2kX2IsBGF_PxNlcju23aXGeE36sLja6Pi781USgWjjNyaogIs8PyaR/exec';
 
-    buttons.forEach(btn => {
-        btn.addEventListener('click', () => {
-            buttons.forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            const filterValue = btn.getAttribute('data-filter');
-            tableRows.forEach(row => {
-                const habitat = row.getAttribute('data-habitat');
-                row.style.display = (filterValue === 'all' || habitat === filterValue) ? '' : 'none';
-            });
+async function addPriceRecord() {
+    const fishName = document.getElementById('fishSelect').value;
+    const price = parseInt(document.getElementById('priceInput').value);
+
+    if (!price || price < 0) {
+        alert("価格を入力してください");
+        return;
+    }
+
+    const newEntry = {
+        name: fishName,
+        price: price,
+        date: new Date().toLocaleString('ja-JP')
+    };
+
+    // ボタンを無効化（連打防止）
+    const btn = document.querySelector('.submit-btn');
+    btn.disabled = true;
+    btn.innerText = "保存中...";
+
+    try {
+        // GASにデータを送信
+        await fetch(GAS_API_URL, {
+            method: "POST",
+            body: JSON.stringify(newEntry)
         });
-    });
 
-    // --- 新規：価格管理ロジック ---
-    let records = JSON.parse(localStorage.getItem('fishingRecords')) || [];
-
-    function addPriceRecord() {
-        const fishName = document.getElementById('fishSelect').value;
-        const price = parseInt(document.getElementById('priceInput').value);
-
-        if (!price || price < 0) {
-            alert("価格を入力してください");
-            return;
-        }
-
-        const newEntry = {
-            id: Date.now(),
-            name: fishName,
-            price: price,
-            date: new Date().toLocaleString()
-        };
-
-        records.unshift(newEntry);
-
-        // 100件制限のチェック
-        if (records.length > 100) {
-            cleanRecords();
-        }
-
-        updateApp();
+        alert("スプレッドシートに保存しました！");
+        
+        // 画面上のデータを更新するために再読み込み
+        initApp(); 
+        
+    } catch (error) {
+        console.error("保存エラー:", error);
+        alert("保存に失敗しました。");
+    } finally {
+        btn.disabled = false;
+        btn.innerText = "記録を追加";
         document.getElementById('priceInput').value = '';
     }
-
-    // 100件超え時のデータ整理
-    function cleanRecords() {
-        const fishTypes = [...new Set(records.map(r => r.name))];
-        let survivors = [];
-
-        fishTypes.forEach(type => {
-            const items = records.filter(r => r.name === type);
-            if (items.length > 0) {
-                const min = items.reduce((prev, curr) => prev.price < curr.price ? prev : curr);
-                const max = items.reduce((prev, curr) => prev.price > curr.price ? prev : curr);
-                survivors.push(min);
-                if (min.id !== max.id) survivors.push(max);
-            }
-        });
-        // 整理して保存（新しい順）
-        records = survivors.sort((a, b) => b.id - a.id);
-        alert("100件を超えたため、各魚の最高・最低価格のみを保持しました。");
-    }
-
-    function updateApp() {
-        localStorage.setItem('fishingRecords', JSON.stringify(records));
-        renderTableStats();
-        renderHistory();
-        document.getElementById('counter').innerText = `現在のデータ数: ${records.length} / 100`;
-    }
-
-    // メインテーブルの「最低価格」「最高価格」列を更新
-    function renderTableStats() {
-        tableRows.forEach(row => {
-            const name = row.getAttribute('data-fish-name');
-            const fishRecords = records.filter(r => r.name === name);
-            
-            const minCell = row.querySelector('.min-price');
-            const maxCell = row.querySelector('.max-price');
-
-            if (fishRecords.length > 0) {
-                const prices = fishRecords.map(r => r.price);
-                minCell.innerText = Math.min(...prices).toLocaleString() + " 円";
-                maxCell.innerText = Math.max(...prices).toLocaleString() + " 円";
-            } else {
-                minCell.innerText = "-";
-                maxCell.innerText = "-";
-            }
-        });
-    }
-
-    // 履歴テーブルの更新
-    function renderHistory() {
-        const tbody = document.querySelector('#historyTable tbody');
-        tbody.innerHTML = '';
-        records.forEach(r => {
-            const row = `<tr><td>${r.date}</td><td>${r.name}</td><td>${r.price.toLocaleString()}円</td></tr>`;
-            tbody.innerHTML += row;
-        });
-    }
-
-    // 初期化実行
-    updateApp();
+}
 
 </script>
 </body>
 </html>
-
 
 
 

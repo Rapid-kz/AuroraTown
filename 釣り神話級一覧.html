@@ -186,36 +186,36 @@ async function addPriceRecord() {
 
     const btn = document.querySelector('.submit-btn');
     btn.disabled = true;
-    btn.innerText = "保存中...";
+    btn.innerText = "送信中...";
 
-    // 1. まず画面（HTML）に即座に反映させる（ユーザーを待たせない）
-    records.unshift(newEntry);
+    // 1. スプレッドシートへ送信（エラーを無視する設定）
+    fetch(GAS_API_URL, {
+        method: "POST",
+        mode: "no-cors", 
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newEntry)
+    }).catch(e => {
+        // no-corsでも稀に起きるネット遮断などのエラーログ用
+        console.log("Network background log:", e);
+    });
+
+    // 2. 「成功・失敗」の判定を待たずに画面を更新する
+    // スプレッドシートに届いているなら、ここを通ればOK
+    records.unshift(newEntry); 
     updateApp();
 
-    try {
-        // 2. GASへ送信（awaitせずにバックグラウンドで送る手法）
-        fetch(GAS_API_URL, {
-            method: "POST",
-            mode: "no-cors", 
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(newEntry)
-        });
-
-        // no-cors の場合、結果を待たずに「完了」とする
-        alert("送信を開始しました！反映まで数分かかる場合があります。");
-        document.getElementById('priceInput').value = '';
-
-    } catch (error) {
-        // 基本的に no-cors ではここには来ませんが、ネット切断時などの保険
-        console.error("送信自体に失敗:", error);
-    } finally {
+    // 3. 完了処理
+    setTimeout(() => {
+        alert("送信しました！\n（反映まで少し時間がかかる場合があります）");
         btn.disabled = false;
         btn.innerText = "記録を追加";
-    }
+        document.getElementById('priceInput').value = '';
+    }, 500);
 }
 </script>
 </body>
 </html>
+
 
 
 

@@ -4,15 +4,20 @@
     <meta charset="UTF-8">
     <title>クラフト一覧</title>
     <style>
-        body { font-family: sans-serif; background-color: #f0f2f5; padding: 20px; display: flex; justify-content: center; }
+        body { font-family: sans-serif; background-color: #f0f2f5; padding: 20px; display: flex; flex-direction: column; align-items: center; }
         .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 500px; }
         
+        /* タブデザイン */
+        .tabs { display: flex; margin-bottom: 20px; background: #e2e8f0; border-radius: 8px; padding: 4px; overflow-x: auto; }
+        .tab-btn { flex: 1; padding: 10px 15px; border: none; background: none; cursor: pointer; border-radius: 6px; font-weight: bold; color: #4a5568; transition: 0.3s; white-space: nowrap; }
+        .tab-btn.active { background: white; color: #007bff; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+
         /* 1行目: アイテム選択 */
         .row-item { margin-bottom: 20px; }
         .row-item label { display: block; font-weight: bold; margin-bottom: 8px; color: #333; }
         select { width: 100%; padding: 12px; border: 2px solid #4a5568; border-radius: 8px; font-size: 1.1rem; }
 
-        /* 2行目・3行目: パラメータ表示エリア */
+        /* パラメータ表示エリア */
         .status-grid { 
             display: grid; 
             grid-template-columns: 1fr 1fr; 
@@ -41,14 +46,20 @@
 <body>
 
 <div class="card">
+    <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('standard')">Weaponry</button>
+        <button class="tab-btn" onclick="switchTab('criminal')">HandCraft</button>
+        <button class="tab-btn" onclick="switchTab('medical')">Chemist</button>
+    </div>
+
     <div class="row-item">
-        <label>アイテムを選択</label>
+        <label id="selectLabel">アイテムを選択</label>
         <select id="itemSelect" onchange="calculate()"></select>
     </div>
 
     <div class="status-grid">
         <div class="status-box">
-            <label>熟練度 </label>
+            <label>必要熟練度</label>
             <div id="resSkill">-</div>
         </div>
         <div class="status-box">
@@ -84,7 +95,8 @@
 </footer>
 
 <script>
-const craftData = [
+// 1. Weaponry
+const standardData = [
     { name: "Bat", skill: "0", labor: 20, price: 50, mat: { "Aluminium": 10, "Steel": 5 } },
     { name: "Knife", skill: "20", labor: 15, price: 10, mat: { "Plastic": 3, "Steel": 5 } },
     { name: "Pistol MK2", skill: "20", labor: 250, price: 20000, mat: { "Aluminium": 5, "Iron": 10, "Plastic": 5, "布切れ": 5 } },
@@ -122,20 +134,85 @@ const craftData = [
     { name: "Tactical Suppressor", skill: "100,000", labor: 500, price: 1000000, mat: { "Metal Scrap": 60, "Plastic": 60, "布切れ": 60 } }
 ];
 
+// 2. HandCraft
+const criminalData = [
+    { name: "Advanced Decry", skill: "0", labor: 200, price: 75000, mat: { "Aluminium": 8, "Copper": 8, "Plastic": 10 } },
+    { name: "犯罪用パソコン", skill: "0", labor: 200, price: 75000, mat: { "Merryweather parts": 1, "違法ラップトップ": 8 } },
+    { name: "Hardened Decry", skill: "0", labor: 200, price: 75000, mat: { "Steel": 1, "違法スマホ": 1 } },
+    { name: "Big Bomb (犯罪)", skill: "0", labor: 40, price: 0, mat: { "Thermite": 1 } },
+    { name: "カッター (犯罪)", skill: "0", labor: 50, price: 1000, mat: { "Iron": 2, "Metal Scrap": 1, "Steel": 1 } },
+    { name: "Rope (犯罪)", skill: "0", labor: 50, price: 3000, mat: { "布切れ": 10 } },
+    { name: "犯罪用カバン", skill: "0", labor: 50, price: 1000, mat: { "Rubber": 1, "布切れ": 3 } },
+    { name: "Disruptor", skill: "0", labor: 20, price: 0, mat: { "Carbon": 1, "Iron": 1, "Plastic": 1 } },
+    { name: "Hack USB (犯罪)", skill: "0", labor: 50, price: 1000, mat: { "Metal Scrap": 5, "Plastic": 2 } },
+    { name: "Laptop", skill: "0", labor: 100, price: 50000, mat: { "Merryweather parts": 1, "違法ラップトップ": 8 } },
+    { name: "ドリル (犯罪)", skill: "0", labor: 50, price: 1000, mat: { "Iron": 2, "Metal Scrap": 1, "Steel": 1 } },
+    { name: "偽造パスポート", skill: "0", labor: 50, price: 1000, mat: { "Plastic": 1, "布切れ": 1 } },
+    { name: "Fingerprint Crack", skill: "0", labor: 50, price: 1000, mat: { "Plastic": 1, "違法スマホ": 1 } },
+    { name: "Small Bomb (犯罪)", skill: "0", labor: 20, price: 0, mat: { "Thermite": 1 } },
+    { name: "バール (犯罪)", skill: "0", labor: 50, price: 1000, mat: { "Iron": 2, "Metal Scrap": 1, "Steel": 1 } },
+    { name: "Lockpick (犯罪)", skill: "0", labor: 20, price: 0, mat: { "Metal Scrap": 1 } },
+    { name: "C4 (犯罪)", skill: "350", labor: 50, price: 0, mat: { "電子工作キット": 1 } },
+    { name: "スクリュードライバー", skill: "0", labor: 50, price: 1000, mat: { "Iron": 2, "Metal Scrap": 1, "Steel": 1 } },
+    { name: "ハッキングデバイス(小)", skill: "0", labor: 50, price: 1000, mat: { "違法スマホ": 1 } },
+    { name: "Thermite (犯罪)", skill: "0", labor: 20, price: 1000, mat: { "Aluminium": 1, "Iron": 1 } },
+    { name: "ブースティング用PC", skill: "250", labor: 10000, price: 75000, mat: { "Aluminium": 15, "Carbon": 10, "Copper": 15, "Plastic": 20, "違法ラップトップ": 4 } },
+    { name: "ハッキングデバイス(大)", skill: "200", labor: 10000, price: 50000, mat: { "Aluminium": 10, "Carbon": 5, "Copper": 10, "Plastic": 15, "違法ラップトップ": 2 } },
+    { name: "ヘビーアーマー", skill: "100", labor: 10000, price: 500000, mat: { "Metal Scrap": 20, "Rubber": 20, "Steel": 30, "布切れ": 20 } }
+];
+
+// 3. Chemist
+const medicalData = [
+    { name: "包帯", skill: "0", labor: 10, price: 0, mat: { "エタノール": 3, "布切れ": 5 } },
+    { name: "鎮痛薬", skill: "0", labor: 20, price: 0, mat: { "Iron": 3, "Metal Scrap": 3 } },
+    { name: "IFAKS", skill: "0", labor: 15, price: 0, mat: { "Aluminium": 3, "包帯": 1 } }
+];
+
+let currentCategory = 'standard';
 const select = document.getElementById('itemSelect');
-craftData.forEach((item, index) => {
-    const option = document.createElement('option');
-    option.value = index;
-    option.textContent = item.name;
-    select.appendChild(option);
-});
+
+function switchTab(category) {
+    currentCategory = category;
+    
+    // 全ボタンのactive解除
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    
+    // 選択されたボタンをactiveに (innerTextの比較)
+    const btnMap = { 'standard': '通常', 'criminal': '犯罪', 'medical': '医療' };
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        if(btn.innerText.includes(btnMap[category])) btn.classList.add('active');
+    });
+
+    updateSelect();
+}
+
+function updateSelect() {
+    let data;
+    if(currentCategory === 'standard') data = standardData;
+    else if(currentCategory === 'criminal') data = criminalData;
+    else data = medicalData;
+
+    select.innerHTML = '';
+    data.forEach((item, index) => {
+        const option = document.createElement('option');
+        option.value = index;
+        option.textContent = item.name;
+        select.appendChild(option);
+    });
+    calculate();
+}
 
 function calculate() {
+    let data;
+    if(currentCategory === 'standard') data = standardData;
+    else if(currentCategory === 'criminal') data = criminalData;
+    else data = medicalData;
+
     const index = select.value;
     const qty = parseInt(document.getElementById('quantity').value) || 0;
-    const item = craftData[index];
+    const item = data[index];
     
-    if (qty <= 0) {
+    if (!item || qty <= 0) {
         document.getElementById('resultArea').style.display = 'none';
         return;
     }
@@ -143,7 +220,10 @@ function calculate() {
     document.getElementById('resultArea').style.display = 'block';
     document.getElementById('resSkill').textContent = item.skill;
     document.getElementById('resLabor').textContent = (item.labor * qty).toLocaleString();
-    document.getElementById('resPrice').textContent = "¥" + (item.price * qty).toLocaleString();
+    
+    // 価格が0の場合は「-」または無料表示
+    const totalPrice = item.price * qty;
+    document.getElementById('resPrice').textContent = totalPrice > 0 ? "¥" + totalPrice.toLocaleString() : "無料";
 
     const tbody = document.getElementById('materialBody');
     tbody.innerHTML = '';
@@ -153,8 +233,9 @@ function calculate() {
         tbody.appendChild(row);
     }
 }
-calculate();
+
+// 初期実行
+updateSelect();
 </script>
 </body>
-
 </html>
